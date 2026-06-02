@@ -1,0 +1,6 @@
+{
+  "name": "Ediccrew",
+  "description": "AI-Powered Creator Workflow Memory & Execution System. Build, test, and save reusable prompt pipelines & output history.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
