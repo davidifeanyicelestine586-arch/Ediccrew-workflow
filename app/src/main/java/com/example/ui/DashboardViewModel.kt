@@ -29,6 +29,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class DashboardViewModel(private val repository: WorkflowRepository) : ViewModel() {
 
     // All workflows available in the database
@@ -138,6 +139,18 @@ class DashboardViewModel(private val repository: WorkflowRepository) : ViewModel
 
     fun selectModel(model: String) {
         _selectedModel.value = model
+    }
+
+    fun updateActiveName(name: String) {
+        _activeName.value = name
+    }
+
+    fun updateActiveDescription(desc: String) {
+        _activeDescription.value = desc
+    }
+
+    fun updateActiveCategory(category: String) {
+        _activeCategory.value = category
     }
 
     fun selectWorkflow(id: Int) {

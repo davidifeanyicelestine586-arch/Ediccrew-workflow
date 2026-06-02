@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
@@ -75,11 +76,29 @@ fun DashboardScreen(
     var newSnapshotLabel by remember { mutableStateOf("") }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
+    val configuration = LocalConfiguration.current
+    val isWideScreen = configuration.screenWidthDp >= 720
+    var showMobileSidebar by remember { mutableStateOf(true) }
+
     // Dialog layout state for responsive widths
     Scaffold(
         modifier = modifier.testTag("dashboard_root"),
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    if (!isWideScreen) {
+                        IconButton(
+                            onClick = { showMobileSidebar = !showMobileSidebar },
+                            modifier = Modifier.testTag("mobile_sidebar_toggle")
+                        ) {
+                            Icon(
+                                imageVector = if (showMobileSidebar) Icons.Default.Menu else Icons.Default.ArrowBack,
+                                contentDescription = "Toggle Sidebar",
+                                tint = WhitePrimary
+                            )
+                        }
+                    }
+                },
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -169,41 +188,49 @@ fun DashboardScreen(
                     .fillMaxSize()
                     .padding(horizontal = 12.dp)
             ) {
-                // Panel 1: Vertical Directory list (Sidebar on wider devices, collapses if needed)
-                Card(
-                    modifier = Modifier
-                        .width(280.dp)
-                        .fillMaxHeight()
-                        .padding(bottom = 12.dp)
-                        .testTag("directory_panel"),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
-                    border = BorderStroke(1.dp, DarkSurfaceVariant)
-                ) {
-                    Column(
+                if (isWideScreen || showMobileSidebar) {
+                    // Panel 1: Vertical Directory list (Sidebar on wider devices, collapses if needed)
+                    Card(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(12.dp)
+                            .fillMaxHeight()
+                            .padding(bottom = 12.dp)
+                            .testTag("directory_panel")
+                            .then(
+                                if (isWideScreen) Modifier.width(280.dp) else Modifier.fillMaxWidth()
+                            ),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                        border = BorderStroke(1.dp, DarkSurfaceVariant)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(12.dp)
                         ) {
-                            Text(
-                                text = "SYSTEM PIPELINES",
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.5.sp,
-                                    color = MutedText
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "SYSTEM PIPELINES",
+                                    style = MaterialTheme.typography.titleSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.5.sp,
+                                        color = MutedText
+                                    )
                                 )
-                            )
 
-                            IconButton(
-                                onClick = { viewModel.createNewWorkflow() },
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .testTag("add_workflow_button"),
+                                IconButton(
+                                    onClick = {
+                                        viewModel.createNewWorkflow()
+                                        if (!isWideScreen) {
+                                            showMobileSidebar = false
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .testTag("add_workflow_button"),
                                 colors = IconButtonDefaults.iconButtonColors(
                                     containerColor = NeonCyan.copy(alpha = 0.1f),
                                     contentColor = NeonCyan
@@ -235,7 +262,12 @@ fun DashboardScreen(
                                             color = if (isSelected) NeonCyan.copy(0.4f) else Color.Transparent,
                                             shape = RoundedCornerShape(8.dp)
                                         )
-                                        .clickable { viewModel.selectWorkflow(workflow.id) }
+                                        .clickable {
+                                            viewModel.selectWorkflow(workflow.id)
+                                            if (!isWideScreen) {
+                                                showMobileSidebar = false
+                                            }
+                                        }
                                         .padding(10.dp)
                                 ) {
                                     Column {
@@ -281,17 +313,21 @@ fun DashboardScreen(
                         }
                     }
                 }
+                }
 
-                Spacer(modifier = Modifier.width(12.dp))
+                if (isWideScreen) {
+                    Spacer(modifier = Modifier.width(12.dp))
+                }
 
-                // Panel 2: Interactive Operations Console Workspace
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .padding(bottom = 12.dp)
-                        .testTag("operations_console")
-                ) {
+                if (isWideScreen || !showMobileSidebar) {
+                    // Panel 2: Interactive Operations Console Workspace
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .padding(bottom = 12.dp)
+                            .testTag("operations_console")
+                    ) {
                     // Active pipeline meta configurations (Inline editor banner)
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -309,7 +345,7 @@ fun DashboardScreen(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         TextField(
                                             value = activeName,
-                                            onValueChange = { viewModel.saveCurrentWorkflow() /* local triggers handle state via factory, let's keep VM editable bound directly */ },
+                                            onValueChange = { viewModel.updateActiveName(it) },
                                             placeholder = { Text("Name your creative pipeline...") },
                                             colors = TextFieldDefaults.colors(
                                                 focusedContainerColor = Color.Transparent,
@@ -333,7 +369,7 @@ fun DashboardScreen(
 
                                     TextField(
                                         value = activeDesc,
-                                        onValueChange = { /* handled in standard view model binders */ },
+                                        onValueChange = { viewModel.updateActiveDescription(it) },
                                         placeholder = { Text("Workflow strategic mission description...") },
                                         colors = TextFieldDefaults.colors(
                                             focusedContainerColor = Color.Transparent,
@@ -480,6 +516,7 @@ fun DashboardScreen(
                             }
                         }
                     }
+                }
                 }
             }
         }
