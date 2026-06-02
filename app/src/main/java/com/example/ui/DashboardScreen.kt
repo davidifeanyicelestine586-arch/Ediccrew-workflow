@@ -313,7 +313,6 @@ fun DashboardScreen(
                         }
                     }
                 }
-                }
 
                 if (isWideScreen) {
                     Spacer(modifier = Modifier.width(12.dp))
@@ -912,6 +911,7 @@ fun DashboardScreen(
             }
         }
     }
+}
 }
 
 @OptIn(ExperimentalLayoutApi::class)
