@@ -47,6 +47,19 @@ class ExampleRobolectricTest {
     }
     
     composeTestRule.waitForIdle()
-    db.close()
+  }
+
+  @Test
+  fun testVariableHighlightTransformation() {
+    val transformation = com.example.ui.VariableHighlightTransformation()
+    val inputText = androidx.compose.ui.text.AnnotatedString("Generate content about {{topic}} inside {platform}")
+    val result = transformation.filter(inputText)
+    
+    // Check lengths match (offset identity mapping)
+    assertEquals(inputText.text.length, result.text.length)
+    
+    // Check styled parts exist
+    val styles = result.text.spanStyles
+    assertEquals(2, styles.size)
   }
 }

@@ -42,6 +42,12 @@ import com.example.data.model.JsonUtils
 import com.example.data.model.WorkflowStep
 import com.example.data.model.StepExecutionOutput
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import com.example.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -1051,19 +1057,10 @@ fun PipelineBuilderView(
 
                                 Spacer(modifier = Modifier.height(4.dp))
 
-                                Text("PROMPT COMPOSITION FORMULA:", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = NeonCyan)
-                                OutlinedTextField(
-                                    value = step.promptTemplate,
+                                RichPromptTemplateArea(
+                                    promptTemplate = step.promptTemplate,
                                     onValueChange = { onUpdateStep(index, step.copy(promptTemplate = it)) },
-                                    placeholder = { Text("Compile custom instruction utilizing brackets e.g., Generate hook about {topic}...") },
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = NeonCyan,
-                                        unfocusedBorderColor = DarkSurfaceVariant,
-                                        focusedTextColor = WhitePrimary,
-                                        unfocusedTextColor = WhitePrimary
-                                    ),
-                                    textStyle = TextStyle(fontSize = 12.sp),
-                                    modifier = Modifier.fillMaxWidth().testTag("prompt_input_$index")
+                                    stepIndex = index
                                 )
 
                                 AnimatedVisibility(visible = isExpanded) {
@@ -1673,6 +1670,292 @@ fun ActivityLogsView(
                     }
                 }
             }
+        }
+    }
+}
+
+class VariableHighlightTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val rawText = text.text
+        val builder = AnnotatedString.Builder()
+        
+        val doubleBraceRegex = Regex("\\{\\{([A-Za-z0-9_\\s]+)\\}\\}")
+        val singleBraceRegex = Regex("\\{([A-Za-z0-9_\\s]+)\\}")
+        
+        // Let's build styled text
+        builder.append(rawText)
+        
+        // Format double braces with high priority dynamic look
+        doubleBraceRegex.findAll(rawText).forEach { match ->
+            builder.addStyle(
+                style = SpanStyle(
+                    color = NeonCyan,
+                    background = NeonCyan.copy(alpha = 0.15f),
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = FontFamily.Monospace
+                ),
+                start = match.range.first,
+                end = match.range.last + 1
+            )
+        }
+        
+        // Format single braces for backwards compatibility and clarity
+        singleBraceRegex.findAll(rawText).forEach { match ->
+            // Skip matches that are already covered by double braces
+            val isDoubleBrace = match.range.first > 0 && 
+                               match.range.last < rawText.length - 1 &&
+                               rawText[match.range.first - 1] == '{' && 
+                               rawText[match.range.last + 1] == '}'
+            if (!isDoubleBrace) {
+                builder.addStyle(
+                    style = SpanStyle(
+                        color = VioletGlow,
+                        background = VioletGlow.copy(alpha = 0.12f),
+                        fontWeight = FontWeight.Medium,
+                        fontFamily = FontFamily.Monospace
+                    ),
+                    start = match.range.first,
+                    end = match.range.last + 1
+                )
+            }
+        }
+        
+        return TransformedText(builder.toAnnotatedString(), OffsetMapping.Identity)
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun RichPromptTemplateArea(
+    promptTemplate: String,
+    onValueChange: (String) -> Unit,
+    stepIndex: Int,
+    modifier: Modifier = Modifier
+) {
+    var textFieldValue by remember(promptTemplate) {
+        mutableStateOf(
+            TextFieldValue(
+                text = promptTemplate,
+                selection = TextRange(promptTemplate.length)
+            )
+        )
+    }
+
+    var showAddVarDialog by remember { mutableStateOf(false) }
+    var customVarName by remember { mutableStateOf("") }
+
+    val insertVariable = { variableName: String ->
+        val formatted = "{{$variableName}}"
+        val text = textFieldValue.text
+        val sel = textFieldValue.selection
+        val before = text.substring(0, sel.min)
+        val after = text.substring(sel.max)
+        val updatedText = before + formatted + after
+        val updatedSelection = TextRange(before.length + formatted.length)
+        
+        textFieldValue = TextFieldValue(text = updatedText, selection = updatedSelection)
+        onValueChange(updatedText)
+    }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "PROMPT FORMULA BUILDER:",
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                color = NeonCyan,
+                fontFamily = FontFamily.Monospace
+            )
+            
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .clickable { showAddVarDialog = true }
+                    .background(NeonCyan.copy(alpha = 0.12f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Create Custom Variable",
+                    tint = NeonCyan,
+                    modifier = Modifier.size(11.dp)
+                )
+                Spacer(modifier = Modifier.width(3.dp))
+                Text(
+                    text = "INSERT VARIABLE",
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NeonCyan
+                )
+            }
+        }
+
+        OutlinedTextField(
+            value = textFieldValue,
+            onValueChange = {
+                textFieldValue = it
+                if (it.text != promptTemplate) {
+                    onValueChange(it.text)
+                }
+            },
+            placeholder = { Text("Compile custom instruction e.g., Generate a hook about {{topic}} for {{audience}}...") },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = NeonCyan,
+                unfocusedBorderColor = DarkSurfaceVariant,
+                focusedTextColor = WhitePrimary,
+                unfocusedTextColor = WhitePrimary,
+                focusedPlaceholderColor = MutedText,
+                unfocusedPlaceholderColor = MutedText
+            ),
+            textStyle = TextStyle(fontSize = 12.sp),
+            visualTransformation = VariableHighlightTransformation(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 96.dp)
+                .testTag("prompt_input_$stepIndex")
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Horizontal scroll row for quick insertion of variables.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "SUGGESTED:",
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Bold,
+                color = MutedText,
+                modifier = Modifier.padding(end = 6.dp)
+            )
+
+            val standardVars = listOf("topic", "audience", "tone", "platform", "theme")
+            val priorStepsOutputs = (1..stepIndex).map { "step${it}_output" }
+
+            androidx.compose.foundation.lazy.LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                items(standardVars) { variable ->
+                    SuggestionVariableChip(
+                        label = variable,
+                        color = NeonCyan,
+                        onClick = { insertVariable(variable) }
+                    )
+                }
+
+                items(priorStepsOutputs) { stepOutput ->
+                    SuggestionVariableChip(
+                        label = stepOutput,
+                        color = VioletGlow,
+                        onClick = { insertVariable(stepOutput) }
+                    )
+                }
+            }
+        }
+    }
+
+    if (showAddVarDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showAddVarDialog = false
+                customVarName = ""
+            },
+            title = {
+                Text(
+                    "CREATE DYNAMIC VARIABLE",
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    color = NeonCyan
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        "Input variable name to insert e.g. {{niche}} as a dynamic template token.",
+                        fontSize = 11.sp,
+                        color = MutedText,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    OutlinedTextField(
+                        value = customVarName,
+                        onValueChange = { customVarName = it.replace(Regex("[^A-Za-z0-9_]"), "") },
+                        placeholder = { Text("e.g. niche") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = NeonCyan,
+                            unfocusedBorderColor = DarkSurfaceVariant,
+                            focusedTextColor = WhitePrimary,
+                            unfocusedTextColor = WhitePrimary
+                        ),
+                        singleLine = true,
+                        textStyle = TextStyle(fontSize = 12.sp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (customVarName.isNotBlank()) {
+                            insertVariable(customVarName.trim().lowercase())
+                        }
+                        showAddVarDialog = false
+                        customVarName = ""
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = DarkBackground)
+                ) {
+                    Text("Insert", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showAddVarDialog = false
+                        customVarName = ""
+                    }
+                ) {
+                    Text("Cancel", color = MutedText, fontSize = 11.sp)
+                }
+            },
+            containerColor = DarkSurface
+        )
+    }
+}
+
+@Composable
+fun SuggestionVariableChip(
+    label: String,
+    color: Color,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .border(0.5.dp, color.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+            .background(color.copy(alpha = 0.08f))
+            .padding(horizontal = 8.dp, vertical = 3.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.AddCircle,
+                contentDescription = null,
+                tint = color.copy(alpha = 0.8f),
+                modifier = Modifier.size(10.dp)
+            )
+            Spacer(modifier = Modifier.width(3.dp))
+            Text(
+                text = "{{$label}}",
+                fontSize = 9.sp,
+                fontFamily = FontFamily.Monospace,
+                color = color
+            )
         }
     }
 }

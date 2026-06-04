@@ -20,6 +20,8 @@ object PipelineExecutor {
     private fun replacePlaceholders(template: String, values: Map<String, String>): String {
         var result = template
         for ((key, value) in values) {
+            result = result.replace("{{$key}}", value, ignoreCase = true)
+            result = result.replace("{{ $key }}", value, ignoreCase = true)
             result = result.replace("{$key}", value, ignoreCase = true)
             result = result.replace("{ $key }", value, ignoreCase = true)
         }

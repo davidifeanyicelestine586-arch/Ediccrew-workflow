@@ -99,14 +99,15 @@ class DashboardViewModel(private val repository: WorkflowRepository) : ViewModel
     // Auto-extracted placeholders
     val extractedVariables: StateFlow<List<String>> = _activeSteps
         .combine(_runtimeInputs) { steps, currentInputs ->
-            val regex = Regex("\\{([A-Za-z0-9_]+)\\}")
+            val regex = Regex("\\{\\{([A-Za-z0-9_\\s]+)\\}\\}|\\{([A-Za-z0-9_\\s]+)\\}")
             val vars = mutableSetOf<String>()
             for (step in steps) {
                 regex.findAll(step.promptTemplate).forEach { result ->
-                    val key = result.groupValues[1].lowercase()
+                    val rawKey = if (result.groupValues[1].isNotEmpty()) result.groupValues[1] else result.groupValues[2]
+                    val key = rawKey.trim().lowercase()
                     // Filter out outputs from prior steps: e.g. "step1_output", or "hook_discovery_engine_output"
                     // Ignore elements starting with 'step' or ending with '_output'
-                    if (!key.startsWith("step") && !key.endsWith("_output")) {
+                    if (!key.startsWith("step") && !key.endsWith("_output") && key.isNotEmpty()) {
                         vars.add(key)
                     }
                 }
