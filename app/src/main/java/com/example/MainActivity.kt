@@ -28,7 +28,7 @@ class MainActivity : ComponentActivity() {
 
         // Spawn central dashboard controller
         val viewModel: DashboardViewModel by viewModels {
-            DashboardViewModelFactory(repository)
+            DashboardViewModelFactory(application, repository)
         }
 
         setContent {

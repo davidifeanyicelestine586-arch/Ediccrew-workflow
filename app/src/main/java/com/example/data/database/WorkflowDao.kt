@@ -12,6 +12,9 @@ interface WorkflowDao {
     @Query("SELECT * FROM workflows ORDER BY createdAt DESC")
     fun getAllWorkflows(): Flow<List<WorkflowEntity>>
 
+    @Query("SELECT * FROM workflows ORDER BY createdAt DESC")
+    suspend fun getAllWorkflowsDirect(): List<WorkflowEntity>
+
     @Query("SELECT * FROM workflows WHERE id = :id")
     suspend fun getWorkflowById(id: Int): WorkflowEntity?
 

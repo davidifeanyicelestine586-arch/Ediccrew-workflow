@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -75,12 +76,24 @@ fun DashboardScreen(
     val selectedModel by viewModel.selectedModel.collectAsStateWithLifecycle()
     val executionState by viewModel.executionState.collectAsStateWithLifecycle()
     val selectedHistory by viewModel.selectedHistoryItem.collectAsStateWithLifecycle()
+    val savedTemplates by viewModel.savedTemplates.collectAsStateWithLifecycle()
 
     var activeTab by remember { mutableIntStateOf(0) } // 0: Steps, 1: Execute, 2: Snapshots, 3: History
     var showApiKeyInfoDialog by remember { mutableStateOf(false) }
     var showSnapshotCreateDialog by remember { mutableStateOf(false) }
     var newSnapshotLabel by remember { mutableStateOf("") }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+
+    // Saved Prompt Templates local state (localStorage)
+    var pipelinesExpanded by remember { mutableStateOf(true) }
+    var templatesExpanded by remember { mutableStateOf(true) }
+    var showCreateTemplateDialog by remember { mutableStateOf(false) }
+    var showTemplateDetailDialog by remember { mutableStateOf(false) }
+    var selectedTemplateForDetail by remember { mutableStateOf<com.example.data.database.SavedPromptTemplate?>(null) }
+    var templateTitleInput by remember { mutableStateOf("") }
+    var templateDescriptionInput by remember { mutableStateOf("") }
+    var templateContentInput by remember { mutableStateOf("") }
+    var isEditingTemplate by remember { mutableStateOf(false) }
 
     val configuration = LocalConfiguration.current
     val isWideScreen = configuration.screenWidthDp >= 720
@@ -213,111 +226,340 @@ fun DashboardScreen(
                                 .fillMaxSize()
                                 .padding(12.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                            LazyColumn(
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxSize()
                             ) {
-                                Text(
-                                    text = "SYSTEM PIPELINES",
-                                    style = MaterialTheme.typography.titleSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 1.5.sp,
-                                        color = MutedText
-                                    )
-                                )
-
-                                IconButton(
-                                    onClick = {
-                                        viewModel.createNewWorkflow()
-                                        if (!isWideScreen) {
-                                            showMobileSidebar = false
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .testTag("add_workflow_button"),
-                                colors = IconButtonDefaults.iconButtonColors(
-                                    containerColor = NeonCyan.copy(alpha = 0.1f),
-                                    contentColor = NeonCyan
-                                )
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = "New Workflow",
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        LazyColumn(
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            items(workflows) { workflow ->
-                                val isSelected = workflow.id == selectedId
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (isSelected) DarkSurfaceVariant else Color.Transparent)
-                                        .border(
-                                            width = 1.dp,
-                                            color = if (isSelected) NeonCyan.copy(0.4f) else Color.Transparent,
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
-                                        .clickable {
-                                            viewModel.selectWorkflow(workflow.id)
-                                            if (!isWideScreen) {
-                                                showMobileSidebar = false
-                                            }
-                                        }
-                                        .padding(10.dp)
-                                ) {
-                                    Column {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
+                                // --- SECTION 1: SYSTEM PIPELINES (ROOM) ---
+                                item {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { pipelinesExpanded = !pipelinesExpanded }
+                                            .padding(vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = if (pipelinesExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
+                                                contentDescription = null,
+                                                tint = MutedText,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
                                             Text(
-                                                text = workflow.name,
-                                                style = TextStyle(
-                                                    fontSize = 14.sp,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    color = if (isSelected) NeonCyan else WhitePrimary
-                                                ),
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                modifier = Modifier.weight(1f)
+                                                text = "SYSTEM PIPELINES",
+                                                style = MaterialTheme.typography.titleSmall.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    letterSpacing = 1.2.sp,
+                                                    color = if (pipelinesExpanded) NeonCyan else MutedText
+                                                )
                                             )
                                         }
-                                        Text(
-                                            text = workflow.category,
-                                            style = TextStyle(
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = VioletGlow
-                                            ),
-                                            modifier = Modifier.padding(top = 2.dp)
-                                        )
-                                        Text(
-                                            text = workflow.description,
-                                            style = TextStyle(
-                                                fontSize = 11.sp,
-                                                color = MutedText
-                                            ),
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.padding(top = 4.dp)
-                                        )
+
+                                        IconButton(
+                                            onClick = {
+                                                viewModel.createNewWorkflow()
+                                                if (!isWideScreen) {
+                                                    showMobileSidebar = false
+                                                }
+                                            },
+                                            modifier = Modifier
+                                                .size(24.dp)
+                                                .testTag("add_workflow_button"),
+                                            colors = IconButtonDefaults.iconButtonColors(
+                                                containerColor = NeonCyan.copy(alpha = 0.1f),
+                                                contentColor = NeonCyan
+                                            )
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Add,
+                                                contentDescription = "New Workflow",
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                if (pipelinesExpanded) {
+                                    if (workflows.isEmpty()) {
+                                        item {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(16.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Column(
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                    verticalArrangement = Arrangement.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Warning,
+                                                        contentDescription = "No Pipelines",
+                                                        tint = MutedText,
+                                                        modifier = Modifier.size(24.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.height(6.dp))
+                                                    Text(
+                                                        text = "NO PIPELINES",
+                                                        style = TextStyle(
+                                                            fontFamily = FontFamily.Monospace,
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontSize = 10.sp,
+                                                            color = MutedText
+                                                        )
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        items(workflows) { workflow ->
+                                            val isSelected = workflow.id == selectedId
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(if (isSelected) DarkSurfaceVariant else Color.Transparent)
+                                                    .border(
+                                                        width = 1.dp,
+                                                        color = if (isSelected) NeonCyan.copy(0.4f) else Color.Transparent,
+                                                        shape = RoundedCornerShape(8.dp)
+                                                    )
+                                                    .clickable {
+                                                        viewModel.selectWorkflow(workflow.id)
+                                                        if (!isWideScreen) {
+                                                            showMobileSidebar = false
+                                                        }
+                                                    }
+                                                    .padding(8.dp)
+                                            ) {
+                                                Column {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(
+                                                            text = workflow.name,
+                                                            style = TextStyle(
+                                                                fontSize = 13.sp,
+                                                                fontWeight = FontWeight.SemiBold,
+                                                                color = if (isSelected) NeonCyan else WhitePrimary
+                                                            ),
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            modifier = Modifier.weight(1f)
+                                                        )
+                                                    }
+                                                    Text(
+                                                        text = workflow.category,
+                                                        style = TextStyle(
+                                                            fontSize = 9.sp,
+                                                            fontWeight = FontWeight.SemiBold,
+                                                            color = VioletGlow
+                                                        ),
+                                                        modifier = Modifier.padding(top = 1.dp)
+                                                    )
+                                                    Text(
+                                                        text = workflow.description,
+                                                        style = TextStyle(
+                                                            fontSize = 10.sp,
+                                                            color = MutedText
+                                                        ),
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        modifier = Modifier.padding(top = 2.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                item {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    HorizontalDivider(
+                                        color = DarkSurfaceVariant,
+                                        thickness = 1.dp,
+                                        modifier = Modifier.padding(horizontal = 4.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                }
+
+                                // --- SECTION 2: SAVED PROMPT TEMPLATES (LOCAL) ---
+                                item {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { templatesExpanded = !templatesExpanded }
+                                            .padding(vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = if (templatesExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
+                                                contentDescription = null,
+                                                tint = MutedText,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Column {
+                                                Text(
+                                                    text = "SAVED TEMPLATES",
+                                                    style = MaterialTheme.typography.titleSmall.copy(
+                                                        fontWeight = FontWeight.Bold,
+                                                        letterSpacing = 1.2.sp,
+                                                        color = if (templatesExpanded) VioletGlow else MutedText
+                                                    )
+                                                )
+                                                Text(
+                                                    text = "LOCALSTORAGE PERSISTED",
+                                                    style = TextStyle(
+                                                        fontFamily = FontFamily.Monospace,
+                                                        fontSize = 8.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MutedText.copy(alpha = 0.5f)
+                                                    )
+                                                )
+                                            }
+                                        }
+
+                                        IconButton(
+                                            onClick = {
+                                                templateTitleInput = ""
+                                                templateDescriptionInput = ""
+                                                templateContentInput = ""
+                                                showCreateTemplateDialog = true
+                                            },
+                                            modifier = Modifier
+                                                .size(24.dp)
+                                                .testTag("add_template_button"),
+                                            colors = IconButtonDefaults.iconButtonColors(
+                                                containerColor = VioletGlow.copy(alpha = 0.15f),
+                                                contentColor = VioletGlow
+                                            )
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Add,
+                                                contentDescription = "New Prompt Template",
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                if (templatesExpanded) {
+                                    if (savedTemplates.isEmpty()) {
+                                        item {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(top = 8.dp)
+                                                    .border(1.dp, DarkSurfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                                    .padding(12.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = "No custom templates yet.\nTap '+' to create one.",
+                                                    style = TextStyle(
+                                                        fontSize = 11.sp,
+                                                        color = MutedText,
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        items(savedTemplates) { template ->
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(DarkBackground.copy(alpha = 0.6f))
+                                                    .border(
+                                                        width = 1.dp,
+                                                        color = DarkSurfaceVariant,
+                                                        shape = RoundedCornerShape(8.dp)
+                                                    )
+                                                    .clickable {
+                                                        selectedTemplateForDetail = template
+                                                        templateTitleInput = template.title
+                                                        templateDescriptionInput = template.description
+                                                        templateContentInput = template.template
+                                                        isEditingTemplate = false
+                                                        showTemplateDetailDialog = true
+                                                    }
+                                                    .padding(10.dp)
+                                            ) {
+                                                Column {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.Top
+                                                    ) {
+                                                        Text(
+                                                            text = template.title,
+                                                            style = TextStyle(
+                                                                fontSize = 12.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = VioletGlow
+                                                            ),
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            modifier = Modifier.weight(1f)
+                                                        )
+                                                        Spacer(modifier = Modifier.width(4.dp))
+                                                        IconButton(
+                                                            onClick = {
+                                                                viewModel.deleteLocalTemplate(template.id)
+                                                            },
+                                                            modifier = Modifier.size(20.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Delete,
+                                                                contentDescription = "Delete Template",
+                                                                tint = Color.Red.copy(alpha = 0.7f),
+                                                                modifier = Modifier.size(12.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                    if (template.description.isNotEmpty()) {
+                                                        Text(
+                                                            text = template.description,
+                                                            style = TextStyle(
+                                                                fontSize = 10.sp,
+                                                                color = MutedText
+                                                            ),
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            modifier = Modifier.padding(top = 1.dp)
+                                                        )
+                                                    }
+                                                    Text(
+                                                        text = template.template,
+                                                        style = TextStyle(
+                                                            fontSize = 10.sp,
+                                                            color = WhitePrimary.copy(alpha = 0.6f),
+                                                            fontFamily = FontFamily.Monospace
+                                                        ),
+                                                        maxLines = 2,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        modifier = Modifier
+                                                            .padding(top = 3.dp)
+                                                            .fillMaxWidth()
+                                                            .background(DarkSurface.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                                                            .padding(4.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
                 }
 
                 if (isWideScreen) {
@@ -522,6 +764,359 @@ fun DashboardScreen(
                         }
                     }
                 }
+                }
+            }
+        }
+    }
+
+    // LocalStorage: Create Prompt Template Dialog
+    if (showCreateTemplateDialog) {
+        Dialog(onDismissRequest = { showCreateTemplateDialog = false }) {
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                border = BorderStroke(1.dp, DarkSurfaceVariant)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "Create Saved Template",
+                        style = TextStyle(
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = VioletGlow,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    )
+                    Text(
+                        text = "Build general templates stored in persistent local storage. Reference inputs using double curly brackets: {{variable}}.",
+                        fontSize = 11.sp,
+                        color = MutedText
+                    )
+
+                    OutlinedTextField(
+                        value = templateTitleInput,
+                        onValueChange = { templateTitleInput = it },
+                        label = { Text("Template Title", fontSize = 11.sp, color = MutedText) },
+                        textStyle = TextStyle(color = WhitePrimary, fontSize = 13.sp),
+                        isError = templateTitleInput.isBlank(),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = VioletGlow,
+                            unfocusedBorderColor = DarkSurfaceVariant,
+                            focusedContainerColor = DarkBackground,
+                            unfocusedContainerColor = DarkBackground
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = templateDescriptionInput,
+                        onValueChange = { templateDescriptionInput = it },
+                        label = { Text("Short Description", fontSize = 11.sp, color = MutedText) },
+                        textStyle = TextStyle(color = WhitePrimary, fontSize = 13.sp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = VioletGlow,
+                            unfocusedBorderColor = DarkSurfaceVariant,
+                            focusedContainerColor = DarkBackground,
+                            unfocusedContainerColor = DarkBackground
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = templateContentInput,
+                        onValueChange = { templateContentInput = it },
+                        label = { Text("Prompt Template (e.g. {{topic}})", fontSize = 11.sp, color = MutedText) },
+                        textStyle = TextStyle(color = WhitePrimary, fontSize = 12.sp, fontFamily = FontFamily.Monospace),
+                        minLines = 4,
+                        maxLines = 6,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = VioletGlow,
+                            unfocusedBorderColor = DarkSurfaceVariant,
+                            focusedContainerColor = DarkBackground,
+                            unfocusedContainerColor = DarkBackground
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(
+                            onClick = { showCreateTemplateDialog = false }
+                        ) {
+                            Text("Cancel", color = MutedText, fontSize = 12.sp)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                if (templateTitleInput.isNotBlank() && templateContentInput.isNotBlank()) {
+                                    viewModel.saveLocalTemplate(
+                                        title = templateTitleInput,
+                                        description = templateDescriptionInput,
+                                        template = templateContentInput
+                                    )
+                                    showCreateTemplateDialog = false
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = VioletGlow, contentColor = Color.White),
+                            enabled = templateTitleInput.isNotBlank() && templateContentInput.isNotBlank(),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("Save to LocalStorage", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // LocalStorage: Template Details, Quick-Inject & Edit Dialog
+    if (showTemplateDetailDialog && selectedTemplateForDetail != null) {
+        val template = selectedTemplateForDetail!!
+        val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+
+        Dialog(onDismissRequest = { showTemplateDetailDialog = false }) {
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                border = BorderStroke(1.dp, DarkSurfaceVariant)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isEditingTemplate) "Edit Template" else "Template Details",
+                            style = TextStyle(
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = VioletGlow,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        )
+                        
+                        Text(
+                            text = "LOCAL PERSISTED",
+                            style = TextStyle(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = VioletGlow.copy(alpha = 0.6f)
+                            )
+                        )
+                    }
+
+                    if (isEditingTemplate) {
+                        OutlinedTextField(
+                            value = templateTitleInput,
+                            onValueChange = { templateTitleInput = it },
+                            label = { Text("Title", fontSize = 11.sp) },
+                            textStyle = TextStyle(color = WhitePrimary, fontSize = 12.sp),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = VioletGlow,
+                                unfocusedBorderColor = DarkSurfaceVariant,
+                                focusedContainerColor = DarkBackground,
+                                unfocusedContainerColor = DarkBackground
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        OutlinedTextField(
+                            value = templateDescriptionInput,
+                            onValueChange = { templateDescriptionInput = it },
+                            label = { Text("Description", fontSize = 11.sp) },
+                            textStyle = TextStyle(color = WhitePrimary, fontSize = 12.sp),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = VioletGlow,
+                                unfocusedBorderColor = DarkSurfaceVariant,
+                                focusedContainerColor = DarkBackground,
+                                unfocusedContainerColor = DarkBackground
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        OutlinedTextField(
+                            value = templateContentInput,
+                            onValueChange = { templateContentInput = it },
+                            label = { Text("Template Content", fontSize = 11.sp) },
+                            textStyle = TextStyle(color = WhitePrimary, fontSize = 11.sp, fontFamily = FontFamily.Monospace),
+                            minLines = 4,
+                            maxLines = 6,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = VioletGlow,
+                                unfocusedBorderColor = DarkSurfaceVariant,
+                                focusedContainerColor = DarkBackground,
+                                unfocusedContainerColor = DarkBackground
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(DarkBackground, RoundedCornerShape(8.dp))
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                text = template.title,
+                                style = TextStyle(
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NeonCyan
+                                )
+                            )
+                            if (template.description.isNotEmpty()) {
+                                Text(
+                                    text = template.description,
+                                    style = TextStyle(fontSize = 11.sp, color = MutedText)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            HorizontalDivider(color = DarkSurfaceVariant)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            
+                            Text(
+                                text = "TEMPLATE PROMPT:",
+                                style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = VioletGlow, fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = template.template,
+                                style = TextStyle(
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = WhitePrimary
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (!isEditingTemplate) {
+                            Row {
+                                Button(
+                                    onClick = {
+                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(template.template))
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = DarkSurfaceVariant,
+                                        contentColor = WhitePrimary
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    shape = RoundedCornerShape(6.dp),
+                                    modifier = Modifier.sizeIn(minHeight = 28.dp)
+                                ) {
+                                    Icon(imageVector = Icons.Default.Share, contentDescription = null, modifier = Modifier.size(10.dp))
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text("Copy Text", fontSize = 10.sp)
+                                }
+                                
+                                Spacer(modifier = Modifier.width(6.dp))
+                                
+                                Button(
+                                    onClick = {
+                                        isEditingTemplate = true
+                                        templateTitleInput = template.title
+                                        templateDescriptionInput = template.description
+                                        templateContentInput = template.template
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = DarkSurfaceVariant,
+                                        contentColor = NeonCyan
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    shape = RoundedCornerShape(6.dp),
+                                    modifier = Modifier.sizeIn(minHeight = 28.dp)
+                                ) {
+                                    Icon(imageVector = Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(10.dp))
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text("Edit", fontSize = 10.sp)
+                                }
+                            }
+                        } else {
+                            Spacer(modifier = Modifier.width(1.dp))
+                        }
+
+                        Row {
+                            TextButton(
+                                onClick = {
+                                    if (isEditingTemplate) {
+                                        isEditingTemplate = false
+                                    } else {
+                                        showTemplateDetailDialog = false
+                                    }
+                                }
+                            ) {
+                                Text(if (isEditingTemplate) "Discard" else "Close", color = MutedText, fontSize = 11.sp)
+                            }
+                            
+                            Spacer(modifier = Modifier.width(4.dp))
+                            
+                            if (isEditingTemplate) {
+                                Button(
+                                    onClick = {
+                                        if (templateTitleInput.isNotBlank() && templateContentInput.isNotBlank()) {
+                                            viewModel.updateLocalTemplate(
+                                                id = template.id,
+                                                title = templateTitleInput,
+                                                description = templateDescriptionInput,
+                                                template = templateContentInput
+                                            )
+                                            isEditingTemplate = false
+                                            selectedTemplateForDetail = template.copy(
+                                                title = templateTitleInput,
+                                                description = templateDescriptionInput,
+                                                template = templateContentInput
+                                            )
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = VioletGlow, contentColor = Color.White),
+                                    shape = RoundedCornerShape(6.dp),
+                                    enabled = templateTitleInput.isNotBlank() && templateContentInput.isNotBlank()
+                                ) {
+                                    Text("Save Changes", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            } else {
+                                Button(
+                                    onClick = {
+                                        // Inject step!
+                                        viewModel.addStepWithTemplate(
+                                            stepName = "Stage: ${template.title}",
+                                            template = template.template
+                                        )
+                                        showTemplateDetailDialog = false
+                                        // Optionally direct user to builder tab
+                                        activeTab = 0
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = DarkBackground),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text("Insert Into Pipeline", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1063,6 +1658,136 @@ fun PipelineBuilderView(
                                     stepIndex = index
                                 )
 
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // --- DATA FLOW PORT META ---
+                                val clipboardManager = LocalClipboardManager.current
+                                val currentStepOutputToken = "step${index + 1}_output"
+                                val friendlyKey = step.stepName.lowercase().replace(Regex("[^a-z0-9_]"), "_") + "_output"
+                                
+                                val referencedPriorSteps = remember(step.promptTemplate) {
+                                    val refs = mutableListOf<Pair<String, String>>()
+                                    for (i in 0 until index) {
+                                        val priorStep = steps[i]
+                                        val key1 = "step${i + 1}_output"
+                                        val key2 = priorStep.stepName.lowercase().replace(Regex("[^a-z0-9_]"), "_") + "_output"
+                                        
+                                        if (step.promptTemplate.contains(key1, ignoreCase = true) || 
+                                            step.promptTemplate.contains(key2, ignoreCase = true)) {
+                                            refs.add(Pair(priorStep.stepName.ifEmpty { "Stage ${i + 1}" }, key1))
+                                        }
+                                    }
+                                    refs
+                                }
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(DarkSurface.copy(alpha = 0.5f))
+                                        .border(BorderStroke(1.dp, DarkSurfaceVariant.copy(alpha = 0.5f)), RoundedCornerShape(6.dp))
+                                        .padding(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Text(
+                                                text = "STAGE PORT OUTFLOW:",
+                                                fontSize = 8.sp,
+                                                fontFamily = FontFamily.Monospace,
+                                                color = SoftTeal,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            
+                                            // Main indicator token
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(4.dp))
+                                                    .background(SoftTeal.copy(alpha = 0.15f))
+                                                    .clickable { clipboardManager.setText(AnnotatedString("{{$currentStepOutputToken}}")) }
+                                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                    Text(
+                                                        text = "{{$currentStepOutputToken}}",
+                                                        fontSize = 9.sp,
+                                                        fontFamily = FontFamily.Monospace,
+                                                        color = SoftTeal,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                    Icon(imageVector = Icons.Default.Share, contentDescription = null, tint = SoftTeal, modifier = Modifier.size(8.dp))
+                                                }
+                                            }
+                                            
+                                            // Friendly token descriptor if different
+                                            if (friendlyKey != currentStepOutputToken) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(4.dp))
+                                                        .background(NeonCyan.copy(alpha = 0.12f))
+                                                        .clickable { clipboardManager.setText(AnnotatedString("{{$friendlyKey}}")) }
+                                                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                                                ) {
+                                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                        Text(
+                                                            text = "{{$friendlyKey}}",
+                                                            fontSize = 9.sp,
+                                                            fontFamily = FontFamily.Monospace,
+                                                            color = NeonCyan,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                        Icon(imageVector = Icons.Default.Share, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(8.dp))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        
+                                        if (referencedPriorSteps.isNotEmpty()) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                modifier = Modifier.padding(top = 2.dp)
+                                            ) {
+                                                Text(
+                                                    text = "CONSUMING COMPASS INFLOWS:",
+                                                    fontSize = 8.sp,
+                                                    fontFamily = FontFamily.Monospace,
+                                                    color = VioletGlow,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                referencedPriorSteps.forEach { pair ->
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(4.dp))
+                                                            .background(VioletGlow.copy(alpha = 0.15f))
+                                                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "🔗 ${pair.first}",
+                                                            fontSize = 8.sp,
+                                                            fontFamily = FontFamily.Monospace,
+                                                            color = VioletGlow,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            Text(
+                                                text = "No prior stages output ingested yet. Use {{stepN_output}} variables.",
+                                                fontSize = 8.sp,
+                                                fontFamily = FontFamily.Monospace,
+                                                color = MutedText.copy(alpha = 0.6f)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
                                 AnimatedVisibility(visible = isExpanded) {
                                     Column(modifier = Modifier.padding(top = 8.dp)) {
                                         Text("EXPERT SYSTEM INSTRUCTION:", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = VioletGlow)
@@ -1080,6 +1805,51 @@ fun PipelineBuilderView(
                                         )
                                     }
                                 }
+                            }
+                        }
+
+                        if (index < steps.lastIndex) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(2.dp)
+                                        .height(16.dp)
+                                        .background(VioletGlow.copy(alpha = 0.4f))
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(VioletGlow.copy(alpha = 0.12f))
+                                        .border(BorderStroke(1.dp, VioletGlow.copy(alpha = 0.3f)), RoundedCornerShape(8.dp))
+                                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Icon(
+                                            imageVector = Icons.Default.KeyboardArrowDown,
+                                            contentDescription = null,
+                                            tint = VioletGlow,
+                                            modifier = Modifier.size(10.dp)
+                                        )
+                                        Text(
+                                            text = "PIPELINE LOGIC LINK: OUTFLOW FLOWS DOWNWARD",
+                                            fontSize = 8.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontWeight = FontWeight.Bold,
+                                            color = VioletGlow
+                                        )
+                                    }
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .width(2.dp)
+                                        .height(16.dp)
+                                        .background(VioletGlow.copy(alpha = 0.4f))
+                                )
                             }
                         }
                     }

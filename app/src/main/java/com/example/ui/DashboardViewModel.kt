@@ -29,8 +29,19 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+import com.example.data.database.LocalStorage
+import com.example.data.database.SavedPromptTemplate
+import java.util.UUID
+
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-class DashboardViewModel(private val repository: WorkflowRepository) : ViewModel() {
+class DashboardViewModel(
+    private val application: Application,
+    private val repository: WorkflowRepository
+) : AndroidViewModel(application) {
+
+    // Saved prompt templates flow matching localStorage
+    private val _savedTemplates = MutableStateFlow<List<SavedPromptTemplate>>(emptyList())
+    val savedTemplates: StateFlow<List<SavedPromptTemplate>> = _savedTemplates.asStateFlow()
 
     // All workflows available in the database
     val workflows: StateFlow<List<WorkflowEntity>> = repository.allWorkflows
@@ -128,11 +139,14 @@ class DashboardViewModel(private val repository: WorkflowRepository) : ViewModel
     val selectedHistoryItem: StateFlow<ExecutionHistoryEntity?> = _selectedHistoryItem.asStateFlow()
 
     init {
+        // Load persistent templates from SharedPreferences/localStorage
+        _savedTemplates.value = LocalStorage.getTemplates(application)
+        
         viewModelScope.launch {
             repository.seedInitialDataIfDbEmpty()
             // Auto select the first workflow if available
-            val list = repository.allWorkflows.firstOrNull()
-            if (!list.isNullOrEmpty()) {
+            val list = repository.getAllWorkflowsDirect()
+            if (list.isNotEmpty()) {
                 selectWorkflow(list.first().id)
             }
         }
@@ -248,6 +262,13 @@ class DashboardViewModel(private val repository: WorkflowRepository) : ViewModel
         _activeSteps.value = current
     }
 
+    fun addStepWithTemplate(stepName: String, template: String) {
+        val current = _activeSteps.value.toMutableList()
+        current.add(WorkflowStep(stepName, template, "You are a helpful creative writing assistant and text generator."))
+        _activeSteps.value = current
+        saveCurrentWorkflow()
+    }
+
     fun removeStep(index: Int) {
         val current = _activeSteps.value.toMutableList()
         if (index in current.indices) {
@@ -341,13 +362,48 @@ class DashboardViewModel(private val repository: WorkflowRepository) : ViewModel
             repository.deleteExecutionHistory(id)
         }
     }
+
+    // LocalStorage CRUD handlers for Prompt Templates
+    fun saveLocalTemplate(title: String, template: String, description: String = "") {
+        val current = _savedTemplates.value.toMutableList()
+        val newTemplate = SavedPromptTemplate(
+            id = UUID.randomUUID().toString(),
+            title = title,
+            template = template,
+            description = description
+        )
+        current.add(0, newTemplate)
+        _savedTemplates.value = current
+        LocalStorage.saveTemplates(application, current)
+    }
+
+    fun deleteLocalTemplate(id: String) {
+        val current = _savedTemplates.value.filter { it.id != id }
+        _savedTemplates.value = current
+        LocalStorage.saveTemplates(application, current)
+    }
+
+    fun updateLocalTemplate(id: String, title: String, template: String, description: String) {
+        val current = _savedTemplates.value.map {
+            if (it.id == id) {
+                it.copy(title = title, template = template, description = description)
+            } else {
+                it
+            }
+        }
+        _savedTemplates.value = current
+        LocalStorage.saveTemplates(application, current)
+    }
 }
 
-class DashboardViewModelFactory(private val repository: WorkflowRepository) : ViewModelProvider.Factory {
+class DashboardViewModelFactory(
+    private val application: Application,
+    private val repository: WorkflowRepository
+) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(DashboardViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return DashboardViewModel(repository) as T
+            return DashboardViewModel(application, repository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

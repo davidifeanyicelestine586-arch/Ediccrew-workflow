@@ -50,10 +50,12 @@ class WorkflowRepository(private val dao: WorkflowDao) {
 
     suspend fun deleteExecutionHistory(id: Int) = dao.deleteExecutionHistory(id)
 
+    suspend fun getAllWorkflowsDirect(): List<WorkflowEntity> = dao.getAllWorkflowsDirect()
+
     // See helper
     suspend fun seedInitialDataIfDbEmpty() {
-        val existing = dao.getAllWorkflows().firstOrNull()
-        if (existing.isNullOrEmpty()) {
+        val existing = dao.getAllWorkflowsDirect()
+        if (existing.isEmpty()) {
             val templates = listOf(
                 WorkflowEntity(
                     name = "Viral TikTok Script System",
