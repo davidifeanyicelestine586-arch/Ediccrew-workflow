@@ -1,21 +1,30 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Ediccrew Workflow
 
-# Run and deploy your AI Studio app
+An experimental Ediccrew workflow/application project. This repository is retained as part of the development history and should be evaluated from the implementation currently present in the source tree.
 
-This contains everything you need to run your app locally.
+## Portfolio context
 
-View your app in AI Studio: https://ai.studio/apps/cde25598-d0ac-4614-b916-dbf7710a4628
+This is a supporting project rather than a primary portfolio proof. For the strongest evidence of current software/web development work, see David Ifeanyi's portfolio and the Tech Stack Architect repository.
 
-## Run Locally
+## Current repository
 
-**Prerequisites:**  [Android Studio](https://developer.android.com/studio)
+The project currently includes an Android Studio / Kotlin-oriented setup and an AI Studio-generated starting point. The original setup instructions below are preserved in a simplified form for reproducibility.
 
+## Run locally
 
-1. Open Android Studio
-2. Select **Open** and choose the directory containing this project
-3. Allow Android Studio to fix any incompatibilities as it imports the project.
-4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
-5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
-6. Run the app on an emulator or physical device
+**Prerequisite:** Android Studio.
+
+1. Open the project directory in Android Studio.
+2. Allow Android Studio to resolve project compatibility issues if prompted.
+3. Configure the required `GEMINI_API_KEY` in local environment configuration when the current implementation requires it.
+4. Run the application on an emulator or physical Android device.
+
+## Security
+
+Never commit API keys, credentials, `.env` files, or other secrets. Keep provider keys in local/deployment environment configuration.
+
+## Status
+
+**Status:** Supporting / experimental project.
+
+Planned capabilities should not be interpreted as completed product functionality.
