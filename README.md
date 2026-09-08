@@ -1,30 +1,70 @@
 # Ediccrew Workflow
 
-An experimental Ediccrew workflow/application project. This repository is retained as part of the development history and should be evaluated from the implementation currently present in the source tree.
+An experimental Ediccrew workflow/application project with an Android Studio and Kotlin-oriented starting point.
 
-## Portfolio context
+## Overview
 
-This is a supporting project rather than a primary portfolio proof. For the strongest evidence of current software/web development work, see David Ifeanyi's portfolio and the Tech Stack Architect repository.
-
-## Current repository
-
-The project currently includes an Android Studio / Kotlin-oriented setup and an AI Studio-generated starting point. The original setup instructions below are preserved in a simplified form for reproducibility.
-
-## Run locally
-
-**Prerequisite:** Android Studio.
-
-1. Open the project directory in Android Studio.
-2. Allow Android Studio to resolve project compatibility issues if prompted.
-3. Configure the required `GEMINI_API_KEY` in local environment configuration when the current implementation requires it.
-4. Run the application on an emulator or physical Android device.
-
-## Security
-
-Never commit API keys, credentials, `.env` files, or other secrets. Keep provider keys in local/deployment environment configuration.
+This repository is a supporting project in the development history. It is not presented as a finished production product or primary portfolio proof.
 
 ## Status
 
-**Status:** Supporting / experimental project.
+**Status:** Supporting / experimental project
 
-Planned capabilities should not be interpreted as completed product functionality.
+The README reflects the current repository rather than planned capabilities.
+
+## Requirements
+
+- Android Studio
+- A compatible Android SDK/emulator or physical Android device
+
+## Installation
+
+Clone the repository and open it in Android Studio:
+
+```bash
+git clone https://github.com/davidifeanyicelestine586-arch/Ediccrew-workflow.git
+cd Ediccrew-workflow
+```
+
+Then allow Android Studio to sync the project and resolve the required Android tooling.
+
+## Usage
+
+1. Open the project in Android Studio.
+2. Configure any provider credentials required by the current implementation in local environment configuration.
+3. Select an emulator or connected Android device.
+4. Build and run the application from Android Studio.
+
+There is no separate public web demo currently documented for this repository.
+
+## Configuration
+
+If the current implementation requires `GEMINI_API_KEY`, configure it locally or through the deployment environment. Do not commit API keys, credentials, `.env` files, or generated secret files.
+
+## Testing
+
+No automated test command is currently documented. Validate changes by building and running the Android application in the supported development environment.
+
+## Documentation
+
+- [README](README.md) — project overview and setup
+- [CONTRIBUTING](CONTRIBUTING.md) — contribution guidance
+- [LICENSE](LICENSE) — MIT license
+
+## Demo and downloads
+
+- **Repository / download:** https://github.com/davidifeanyicelestine586-arch/Ediccrew-workflow
+- **Live demo:** Not currently available
+- **Documentation:** https://github.com/davidifeanyicelestine586-arch/Ediccrew-workflow/blob/main/README.md
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidance.
+
+## License
+
+This project is released under the MIT License. See [LICENSE](LICENSE).
+
+## Support
+
+For questions, bugs, or project discussion, use the repository [issue tracker](https://github.com/davidifeanyicelestine586-arch/Ediccrew-workflow/issues).
